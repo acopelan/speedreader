@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Speed Reader</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .word-display {
+            min-height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 20px 0;
+            text-align: center;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        .controls {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input, button, textarea {
+            font-size: 16px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:disabled {
+            background: #ccc;
+        }
+        .speed-control {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .speed-control input {
+            width: 80px;
+        }
+        .progress {
+            width: 100%;
+            height: 4px;
+            background: #eee;
+            border-radius: 2px;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: #007AFF;
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <textarea id="textInput" rows="4" placeholder="Paste your text here..."></textarea>
+        <div class="controls">
+            <div class="speed-control">
+                <label>Speed (WPM):</label>
+                <input type="number" id="wpmInput" value="300" min="50" max="1000">
+            </div>
+            <button id="startBtn">Start</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+        <div class="word-display" id="wordDisplay">Ready</div>
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+    </div>
+
+    <script>
+        let words = [];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let intervalId = null;
+
+        const textInput = document.getElementById('textInput');
+        const wpmInput = document.getElementById('wpmInput');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const wordDisplay = document.getElementById('wordDisplay');
+        const progressBar = document.getElementById('progressBar');
+
+        function updateProgress() {
+            const progress = (currentIndex / words.length) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+
+        function displayWord() {
+            if (currentIndex >= words.length) {
+                stopReading();
+                return;
+            }
+            wordDisplay.textContent = words[currentIndex];
+            updateProgress();
+            currentIndex++;
+        }
+
+        function startReading() {
+            if (!words.length) {
+                words = textInput.value.trim().split(/\s+/).filter(word => word.length > 0);
+                if (!words.length) {
+                    wordDisplay.textContent = 'Please enter some text';
+                    return;
+                }
+            }
+
+            if (!isPlaying) {
+                isPlaying = true;
+                startBtn.textContent = 'Pause';
+                const wpm = parseInt(wpmInput.value) || 300;
+                const interval = (60 * 1000) / wpm;
+                intervalId = setInterval(displayWord, interval);
+            } else {
+                stopReading();
+            }
+        }
+
+        function stopReading() {
+            clearInterval(intervalId);
+            isPlaying = false;
+            startBtn.textContent = 'Start';
+        }
+
+        function resetReading() {
+            stopReading();
+            currentIndex = 0;
+            wordDisplay.textContent = 'Ready';
+            progressBar.style.width = '0%';
+        }
+
+        startBtn.addEventListener('click', startReading);
+        resetBtn.addEventListener('click', resetReading);
+
+        // Add touch event handlers for mobile
+        wordDisplay.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (isPlaying) {
+                stopReading();
+            } else {
+                startReading();
+            }
+        });
+    </script>
+</body>
+</html>
