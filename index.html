@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Speed Reader</title>
+    <title>Web Speed Reader</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -36,7 +37,7 @@
             gap: 10px;
             margin-bottom: 20px;
         }
-        input, button, textarea {
+        input, button {
             font-size: 16px;
             padding: 12px;
             border: 1px solid #ddd;
@@ -77,23 +78,31 @@
             border-radius: 2px;
             transition: width 0.3s;
         }
+        .status {
+            color: #666;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <textarea id="textInput" rows="4" placeholder="Paste your text here..."></textarea>
+        <input type="url" id="urlInput" placeholder="Enter website URL (https://...)" />
         <div class="controls">
             <div class="speed-control">
                 <label>Speed (WPM):</label>
                 <input type="number" id="wpmInput" value="300" min="50" max="1000">
             </div>
-            <button id="startBtn">Start</button>
-            <button id="resetBtn">Reset</button>
+            <button id="fetchBtn">Fetch Article</button>
+            <button id="startBtn" disabled>Start</button>
+            <button id="resetBtn" disabled>Reset</button>
         </div>
-        <div class="word-display" id="wordDisplay">Ready</div>
+        <div class="word-display" id="wordDisplay">Enter a URL to begin</div>
         <div class="progress">
             <div class="progress-bar" id="progressBar"></div>
         </div>
+        <div class="status" id="status"></div>
     </div>
 
     <script>
@@ -102,16 +111,19 @@
         let isPlaying = false;
         let intervalId = null;
 
-        const textInput = document.getElementById('textInput');
+        const urlInput = document.getElementById('urlInput');
         const wpmInput = document.getElementById('wpmInput');
+        const fetchBtn = document.getElementById('fetchBtn');
         const startBtn = document.getElementById('startBtn');
         const resetBtn = document.getElementById('resetBtn');
         const wordDisplay = document.getElementById('wordDisplay');
         const progressBar = document.getElementById('progressBar');
+        const status = document.getElementById('status');
 
         function updateProgress() {
             const progress = (currentIndex / words.length) * 100;
             progressBar.style.width = `${progress}%`;
+            status.textContent = `Word ${currentIndex} of ${words.length}`;
         }
 
         function displayWord() {
@@ -124,13 +136,59 @@
             currentIndex++;
         }
 
-        function startReading() {
-            if (!words.length) {
-                words = textInput.value.trim().split(/\s+/).filter(word => word.length > 0);
-                if (!words.length) {
-                    wordDisplay.textContent = 'Please enter some text';
+        async function fetchContent() {
+            const url = urlInput.value;
+            if (!url) {
+                wordDisplay.textContent = 'Please enter a URL';
+                return;
+            }
+
+            try {
+                wordDisplay.textContent = 'Fetching content...';
+                startBtn.disabled = true;
+                resetBtn.disabled = true;
+
+                // Use a CORS proxy to fetch the content
+                const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+                const response = await fetch(proxyUrl);
+                const html = await response.text();
+
+                // Create a DOM parser
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Extract text from paragraphs
+                const paragraphs = doc.getElementsByTagName('p');
+                let text = '';
+                for (let p of paragraphs) {
+                    text += p.textContent + ' ';
+                }
+
+                // Split into words and filter empty strings
+                words = text.trim().split(/\s+/).filter(word => word.length > 0);
+                currentIndex = 0;
+                
+                if (words.length === 0) {
+                    wordDisplay.textContent = 'No readable content found';
                     return;
                 }
+
+                wordDisplay.textContent = 'Ready to start';
+                startBtn.disabled = false;
+                resetBtn.disabled = false;
+                status.textContent = `${words.length} words loaded`;
+                updateProgress();
+
+            } catch (error) {
+                wordDisplay.textContent = 'Error fetching content. Make sure the URL is correct and the site allows access.';
+                console.error('Error:', error);
+            }
+        }
+
+        function startReading() {
+            if (!words.length) {
+                wordDisplay.textContent = 'Please fetch content first';
+                return;
             }
 
             if (!isPlaying) {
@@ -154,15 +212,18 @@
             stopReading();
             currentIndex = 0;
             wordDisplay.textContent = 'Ready';
-            progressBar.style.width = '0%';
+            startBtn.textContent = 'Start';
+            updateProgress();
         }
 
+        fetchBtn.addEventListener('click', fetchContent);
         startBtn.addEventListener('click', startReading);
         resetBtn.addEventListener('click', resetReading);
 
         // Add touch event handlers for mobile
         wordDisplay.addEventListener('touchend', (e) => {
             e.preventDefault();
+            if (startBtn.disabled) return;
             if (isPlaying) {
                 stopReading();
             } else {
